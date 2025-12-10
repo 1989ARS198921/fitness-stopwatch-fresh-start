@@ -1,4 +1,3 @@
-// src/App.js
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import { 
@@ -18,6 +17,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  List,
   ListItem,
   ListItemText,
   Divider,
@@ -63,9 +63,20 @@ function App() {
   const [calories, setCalories] = useState(0);
   const [showRestAlert, setShowRestAlert] = useState(false);
   
-  // Состояние для истории тренировок
-  const [workoutHistory, setWorkoutHistory] = useState([]);
+  // Состояние для истории тренировок - теперь будет загружаться из localStorage
+  const [workoutHistory, setWorkoutHistory] = useState(() => {
+    // Загружаем историю из localStorage при инициализации
+    const savedHistory = localStorage.getItem('workoutHistory');
+    return savedHistory ? JSON.parse(savedHistory) : [];
+  });
+
+  // Состояние для отображения диалога истории
   const [showHistory, setShowHistory] = useState(false);
+
+  // Эффект для сохранения истории в localStorage при её изменении
+  useEffect(() => {
+    localStorage.setItem('workoutHistory', JSON.stringify(workoutHistory));
+  }, [workoutHistory]); // Запускается каждый раз, когда workoutHistory изменяется
 
   // Функция для обновления времени таймера
   const handleTimeUpdate = useCallback((timerId, newTime) => {
@@ -148,7 +159,7 @@ function App() {
     
     // Сохраняем результат тренировки в историю
     const workoutResult = {
-      id: Date.now(),
+      id: Date.now(), // Используем timestamp как уникальный ID
       date: new Date().toLocaleDateString('ru-RU'),
       time: new Date().toLocaleTimeString('ru-RU'),
       rounds: workoutSettings.totalCompletedRounds,
@@ -157,11 +168,13 @@ function App() {
       timers: [...timers]
     };
     
+    // Обновляем состояние истории - это вызовет useEffect и сохранение в localStorage
     setWorkoutHistory(prev => [workoutResult, ...prev]);
   }, [calories, timers, workoutSettings.totalCompletedRounds]);
 
   // Функция для удаления тренировки из истории
   const deleteWorkout = useCallback((id) => {
+    // Удаляем тренировку с указанным id и обновляем состояние
     setWorkoutHistory(prev => prev.filter(workout => workout.id !== id));
   }, []);
 
@@ -457,7 +470,7 @@ function App() {
     }
     
     const maxCalories = Math.max(...recentWorkouts.map(w => w.calories), 100);
-    // maxRounds не используется, поэтому не определяем
+    // const maxRounds = Math.max(...recentWorkouts.map(w => w.rounds), 1); // УДАЛЕНО: не используется
 
     return (
       <Box sx={{ p: 2, color: 'white' }}>
@@ -525,47 +538,49 @@ function App() {
           ) : (
             <>
               <StatsChart />
-              {workoutHistory.map((workout, index) => (
-                <React.Fragment key={workout.id}>
-                  <ListItem 
-                    alignItems="flex-start" 
-                    sx={{ 
-                      backgroundColor: index % 2 === 0 ? '#2d2d2d' : '#333', 
-                      borderRadius: 1, 
-                      mb: 1,
-                      color: 'white'
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Typography sx={{ color: 'white' }}>
-                          Тренировка от {workout.date} {workout.time}
-                        </Typography>
-                      }
-                      secondary={
-                        <>
-                          <Typography component="span" variant="body2" sx={{ color: 'white' }}>
-                            Выполнено кругов: {workout.rounds}, Калорий: {workout.calories}
-                          </Typography>
-                          <br />
-                          <Typography component="span" variant="body2" sx={{ color: 'white' }}>
-                            Общее время: {(workout.totalWorkoutTime / 60).toFixed(1)} мин
-                          </Typography>
-                        </>
-                      }
-                    />
-                    <IconButton 
-                      edge="end" 
-                      aria-label="удалить" 
-                      onClick={() => deleteWorkout(workout.id)}
-                      sx={{ color: 'white' }}
+              <List>
+                {workoutHistory.map((workout, index) => (
+                  <React.Fragment key={workout.id}>
+                    <ListItem 
+                      alignItems="flex-start" 
+                      sx={{ 
+                        backgroundColor: index % 2 === 0 ? '#2d2d2d' : '#333', 
+                        borderRadius: 1, 
+                        mb: 1,
+                        color: 'white'
+                      }}
                     >
-                      <Delete />
-                    </IconButton>
-                  </ListItem>
-                  <Divider />
-                </React.Fragment>
-              ))}
+                      <ListItemText
+                        primary={
+                          <Typography sx={{ color: 'white' }}>
+                            Тренировка от {workout.date} {workout.time}
+                          </Typography>
+                        }
+                        secondary={
+                          <>
+                            <Typography component="span" variant="body2" sx={{ color: 'text.primary' }}>
+                              Выполнено кругов: {workout.rounds}, Калорий: {workout.calories}
+                            </Typography>
+                            <br />
+                            <Typography component="span" variant="body2" sx={{ color: 'text.primary' }}>
+                              Общее время: {(workout.totalWorkoutTime / 60).toFixed(1)} мин
+                            </Typography>
+                          </>
+                        }
+                      />
+                      <IconButton 
+                        edge="end" 
+                        aria-label="удалить" 
+                        onClick={() => deleteWorkout(workout.id)}
+                        sx={{ color: 'white' }}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </ListItem>
+                    <Divider />
+                  </React.Fragment>
+                ))}
+              </List>
             </>
           )}
         </DialogContent>
