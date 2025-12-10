@@ -109,7 +109,7 @@ function App() {
       return {
         ...prev,
         isWorkoutActive: newActiveState || prev.isWorkoutActive, // Если упражнение запускается
-        isPaused: !newActiveState && !timers.some(t => t.id === 2 && t.isRunning) // Пауза, если оба остановлены
+        isPaused: !anyRunning // Пауза, если оба остановлены
       };
     });
   }, [timers]);
@@ -267,18 +267,32 @@ function App() {
 
     return (
       <Card 
+        // Убраны m: 0.5 и height: '100%', добавлены sx для одинакового размера и эффектов
         sx={{ 
           minWidth: '100%', 
-          m: 0.5, 
+          // m: 0.5, // Убрано для равномерного распределения
           backgroundColor: isActiveTimer ? '#212121' : '#2d2d2d', 
           color: 'white', 
           border: isActiveTimer ? '2px solid #1976d2' : '1px solid #444',
-          boxShadow: isActiveTimer ? '0 0 15px rgba(25, 118, 210, 0.5)' : 'none',
-          height: '100%',
-          borderRadius: 2 
+          boxShadow: isActiveTimer ? 
+            '0 0 15px rgba(25, 118, 210, 0.5), 0 0 25px rgba(25, 118, 210, 0.3)' : // Добавлен второй слой тени
+            '0 4px 8px rgba(0,0,0,0.2)', // Тень для неактивных
+          borderRadius: 2,
+          // Добавлены свойства для одинакового размера и центрирования содержимого
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%', // Занимает всю высоту GridItem
+          // Добавлены эффекты для активного таймера
+          transform: isActiveTimer ? 'scale(1.02)' : 'scale(1)', // Легкое увеличение
+          transition: 'all 0.3s ease-in-out', // Плавный переход для всех изменений
+          '&:hover': {
+            backgroundColor: isActiveTimer ? '#2a2a2a' : '#353535', // Легкий эффект при наведении
+            transform: isActiveTimer ? 'scale(1.03)' : 'scale(1.01)', // Легкое увеличение при наведении
+          }
         }}
       >
-        <CardContent>
+        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Timer sx={{ mr: 1, color: isActiveTimer ? '#1976d2' : 'inherit' }} />
@@ -756,9 +770,9 @@ function App() {
             </Box>
             
             {/* Только 2 таймера */}
-            <Grid container spacing={1} justifyContent="center">
+            <Grid container spacing={2} justifyContent="center"> {/* Изменили spacing с 1 на 2 */}
               {timers.map((timer) => (
-                <Grid item xs={12} md={6} key={timer.id}> 
+                <Grid item xs={12} md={6} key={timer.id}> {/* md={6} для 2 в ряд на больших экранах, xs={12} для 1 на маленьких */}
                   <Stopwatch 
                     id={timer.id}
                     title={timer.title}
