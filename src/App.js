@@ -1,3 +1,4 @@
+// src/App.js
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import { 
@@ -51,10 +52,8 @@ function App() {
   
   const [workoutSettings, setWorkoutSettings] = useState({
     rounds: 3,
-    exerciseTime: 45, // секунды
-    restTime: 15, // секунды
+    exerciseTime: 1, // минут
     currentRound: 1,
-    currentPhase: 'exercise', // 'exercise' или 'rest'
     totalCompletedRounds: 0,
     isWorkoutActive: false,
     isPaused: false
@@ -62,21 +61,29 @@ function App() {
   
   const [calories, setCalories] = useState(0);
   const [showRestAlert, setShowRestAlert] = useState(false);
-  
-  // Состояние для истории тренировок - теперь будет загружаться из localStorage
   const [workoutHistory, setWorkoutHistory] = useState(() => {
-    // Загружаем историю из localStorage при инициализации
     const savedHistory = localStorage.getItem('workoutHistory');
     return savedHistory ? JSON.parse(savedHistory) : [];
   });
-
-  // Состояние для отображения диалога истории
   const [showHistory, setShowHistory] = useState(false);
+  const [blinkActive, setBlinkActive] = useState(false);
 
-  // Эффект для сохранения истории в localStorage при её изменении
+  // Эффект для мигания
+  useEffect(() => {
+    if (!workoutSettings.isWorkoutActive || workoutSettings.isPaused) {
+      setBlinkActive(false);
+      return;
+    }
+    const interval = setInterval(() => {
+      setBlinkActive(prev => !prev);
+    }, 500);
+    return () => clearInterval(interval);
+  }, [workoutSettings.isWorkoutActive, workoutSettings.isPaused]);
+
+  // Эффект для сохранения истории в localStorage
   useEffect(() => {
     localStorage.setItem('workoutHistory', JSON.stringify(workoutHistory));
-  }, [workoutHistory]); // Запускается каждый раз, когда workoutHistory изменяется
+  }, [workoutHistory]);
 
   // Функция для обновления времени таймера
   const handleTimeUpdate = useCallback((timerId, newTime) => {
@@ -113,7 +120,6 @@ function App() {
     setWorkoutSettings(prev => ({ 
       ...prev, 
       currentRound: 1, 
-      currentPhase: 'exercise',
       totalCompletedRounds: 0,
       isWorkoutActive: false,
       isPaused: false
@@ -159,7 +165,7 @@ function App() {
     
     // Сохраняем результат тренировки в историю
     const workoutResult = {
-      id: Date.now(), // Используем timestamp как уникальный ID
+      id: Date.now(),
       date: new Date().toLocaleDateString('ru-RU'),
       time: new Date().toLocaleTimeString('ru-RU'),
       rounds: workoutSettings.totalCompletedRounds,
@@ -168,13 +174,11 @@ function App() {
       timers: [...timers]
     };
     
-    // Обновляем состояние истории - это вызовет useEffect и сохранение в localStorage
     setWorkoutHistory(prev => [workoutResult, ...prev]);
   }, [calories, timers, workoutSettings.totalCompletedRounds]);
 
   // Функция для удаления тренировки из истории
   const deleteWorkout = useCallback((id) => {
-    // Удаляем тренировку с указанным id и обновляем состояние
     setWorkoutHistory(prev => prev.filter(workout => workout.id !== id));
   }, []);
 
@@ -196,40 +200,15 @@ function App() {
       totalCompletedRounds: prev.totalCompletedRounds + 1
     }));
     
-    // Показываем уведомление о переходе к отдыху
-    if (workoutSettings.currentPhase === 'exercise') {
+    // Проверяем, закончилась ли тренировка
+    if (workoutSettings.totalCompletedRounds + 1 >= workoutSettings.rounds) {
+      stopWorkout();
+    } else {
+      // Показываем уведомление о переходе
       setShowRestAlert(true);
       setTimeout(() => setShowRestAlert(false), 3000); // Скрываем через 3 секунды
     }
-  }, [workoutSettings.currentPhase]);
-
-  // Функция для перехода к следующему раунду
-  const nextRound = useCallback(() => {
-    setWorkoutSettings(prev => {
-      let newRound = prev.currentRound;
-      let newPhase = prev.currentPhase;
-      
-      if (prev.currentPhase === 'exercise') {
-        newPhase = 'rest';
-      } else {
-        newRound = Math.min(prev.currentRound + 1, prev.rounds);
-        newPhase = 'exercise';
-      }
-      
-      return {
-        ...prev,
-        currentRound: newRound,
-        currentPhase: newPhase
-      };
-    });
-    
-    // Сбрасываем таймеры при переходе к отдыху
-    if (workoutSettings.currentPhase === 'exercise') {
-      setTimers(prevTimers => 
-        prevTimers.map(timer => ({ ...timer, time: 0 }))
-      );
-    }
-  }, [workoutSettings.currentPhase]);
+  }, [workoutSettings.totalCompletedRounds, workoutSettings.rounds, stopWorkout]);
 
   // Расчет калорий (упрощенная формула)
   useEffect(() => {
@@ -243,8 +222,8 @@ function App() {
 
   // Обработка завершения упражнения
   useEffect(() => {
-    if (workoutSettings.isWorkoutActive && !workoutSettings.isPaused && workoutSettings.currentPhase === 'exercise') {
-      const maxTime = workoutSettings.exerciseTime * 1000; // в миллисекундах
+    if (workoutSettings.isWorkoutActive && !workoutSettings.isPaused) {
+      const maxTime = workoutSettings.exerciseTime * 60 * 1000; // в миллисекундах (минуты * 60 * 1000)
       const activeTimer = timers.find(timer => timer.isActive);
       
       if (activeTimer && activeTimer.time >= maxTime) {
@@ -275,11 +254,11 @@ function App() {
       if (isRunning && isActive) {
         interval = setInterval(() => {
           setLocalTime(prevTime => {
-            const newTime = prevTime + 10;
+            const newTime = prevTime + 10; // Увеличиваем на 10 мс
             onTimeUpdate(id, newTime);
             return newTime;
           });
-        }, 10);
+        }, 10); // Интервал 10 мс
       } else {
         clearInterval(interval);
       }
@@ -596,6 +575,9 @@ function App() {
     );
   };
 
+  // Вычисляем общее время тренировки
+  const totalWorkoutTime = timers.reduce((sum, timer) => sum + timer.time, 0) / 1000; // в секундах
+
   return (
     <div className="App">
       <header className="App-header">
@@ -642,28 +624,29 @@ function App() {
                 </Grid>
                 
                 <Grid item xs={12} sm={4}>
-                  <Typography gutterBottom>Упражнение (сек): {workoutSettings.exerciseTime}</Typography>
+                  <Typography gutterBottom>Упражнение (мин): {workoutSettings.exerciseTime}</Typography>
                   <Slider
                     value={workoutSettings.exerciseTime}
                     onChange={(e, value) => setWorkoutSettings(prev => ({ ...prev, exerciseTime: value }))}
                     valueLabelDisplay="auto"
-                    step={5}
-                    min={10}
-                    max={120}
+                    step={1}
+                    min={1}
+                    max={10}
                     color="secondary"
                   />
                 </Grid>
                 
+                {/* Общее время тренировки - отображение */}
                 <Grid item xs={12} sm={4}>
-                  <Typography gutterBottom>Отдых (сек): {workoutSettings.restTime}</Typography>
+                  <Typography gutterBottom>Общее время тренировки (сек): {totalWorkoutTime.toFixed(1)}</Typography>
                   <Slider
-                    value={workoutSettings.restTime}
-                    onChange={(e, value) => setWorkoutSettings(prev => ({ ...prev, restTime: value }))}
+                    value={totalWorkoutTime}
                     valueLabelDisplay="auto"
-                    step={5}
-                    min={5}
-                    max={60}
+                    step={0.1}
+                    min={0}
+                    max={workoutSettings.rounds * workoutSettings.exerciseTime * 60} // максимум = круги * мин * 60
                     color="info"
+                    disabled // Только для отображения
                   />
                 </Grid>
               </Grid>
@@ -723,20 +706,6 @@ function App() {
                     
                     <Button 
                       variant="contained" 
-                      startIcon={<SkipNext />}
-                      onClick={nextRound}
-                      sx={{ 
-                        backgroundColor: '#9c27b0', 
-                        '&:hover': { backgroundColor: '#7b1fa2' },
-                        m: 0.5,
-                        minWidth: { xs: 120, sm: 'auto' }
-                      }}
-                    >
-                      След. этап
-                    </Button>
-                    
-                    <Button 
-                      variant="contained" 
                       startIcon={<Stop />}
                       onClick={stopWorkout}
                       sx={{ 
@@ -773,9 +742,6 @@ function App() {
                   <Typography variant="subtitle1">
                     Раунд {workoutSettings.currentRound} из {workoutSettings.rounds}
                   </Typography>
-                  <Typography variant="subtitle1">
-                    {workoutSettings.currentPhase === 'exercise' ? 'Упражнение' : 'Отдых'}
-                  </Typography>
                 </Box>
                 <LinearProgress 
                   variant="determinate" 
@@ -794,7 +760,7 @@ function App() {
               {/* Уведомление о переходе к отдыху */}
               {showRestAlert && (
                 <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
-                  Переход к отдыху! Все таймеры сброшены.
+                  Переход к следующему кругу! Таймер сброшен.
                 </Alert>
               )}
             </Box>
@@ -819,7 +785,8 @@ function App() {
                     fontWeight: timer.isActive ? 'bold' : 'normal',
                     backgroundColor: timer.isActive ? '#1976d2' : '#444',
                     borderColor: timer.isActive ? '#1976d2' : '#666',
-                    borderRadius: 16 // Закругленные углы для чипов
+                    borderRadius: 16, // Закругленные углы для чипов
+                    animation: timer.isActive && blinkActive ? 'blink 0.5s infinite alternate' : 'none'
                   }}
                 />
               ))}
