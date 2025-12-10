@@ -1,4 +1,9 @@
 {
+  "build": {
+    "env": {
+      "CI": "1"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
