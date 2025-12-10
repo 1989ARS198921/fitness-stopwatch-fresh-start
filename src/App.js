@@ -44,10 +44,10 @@ function App() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Обновленный массив таймеров: только 2 таймера
   const [timers, setTimers] = useState([
-    { id: 1, time: 0, isRunning: false, title: 'Круг 1', isActive: false },
-    { id: 2, time: 0, isRunning: false, title: 'Круг 2', isActive: false },
-    { id: 3, time: 0, isRunning: false, title: 'Круг 3', isActive: false }
+    { id: 1, time: 0, isRunning: false, title: 'Упражнение', isActive: true, hasControls: true }, // Первый таймер - упражнение, с контролами
+    { id: 2, time: 0, isRunning: false, title: 'Отдых', isActive: false, hasControls: false }  // Второй таймер - отдых, без контролов
   ]);
   
   const [workoutSettings, setWorkoutSettings] = useState({
@@ -66,19 +66,6 @@ function App() {
     return savedHistory ? JSON.parse(savedHistory) : [];
   });
   const [showHistory, setShowHistory] = useState(false);
-  const [blinkActive, setBlinkActive] = useState(false);
-
-  // Эффект для мигания
-  useEffect(() => {
-    if (!workoutSettings.isWorkoutActive || workoutSettings.isPaused) {
-      setBlinkActive(false);
-      return;
-    }
-    const interval = setInterval(() => {
-      setBlinkActive(prev => !prev);
-    }, 500);
-    return () => clearInterval(interval);
-  }, [workoutSettings.isWorkoutActive, workoutSettings.isPaused]);
 
   // Эффект для сохранения истории в localStorage
   useEffect(() => {
@@ -94,20 +81,57 @@ function App() {
     );
   }, []);
 
-  // Функция для запуска/паузы таймера
-  const toggleTimer = useCallback((timerId) => {
+  // Функция для запуска/паузы таймера упражнения (id=1)
+  const toggleExerciseTimer = useCallback(() => {
     setTimers(prevTimers => 
       prevTimers.map(timer => 
-        timer.id === timerId ? { ...timer, isRunning: !timer.isRunning } : timer
+        timer.id === 1 ? { ...timer, isRunning: !timer.isRunning } : timer
       )
     );
   }, []);
 
-  // Функция для сброса таймера
-  const resetTimer = useCallback((timerId) => {
+  // Функция для запуска/паузы таймера отдыха (id=2) - с логикой паузы упражнения
+  const toggleRestTimer = useCallback(() => {
+    setTimers(prevTimers => {
+      const restTimer = prevTimers.find(t => t.id === 2);
+      const newRestRunningState = !restTimer.isRunning;
+
+      // Обновляем состояние таймера отдыха
+      const updatedTimers = prevTimers.map(timer => 
+        timer.id === 2 ? { ...timer, isRunning: newRestRunningState } : timer
+      );
+
+      // Если таймер отдыха запускается, ставим таймер упражнения на паузу
+      if (newRestRunningState) {
+        return updatedTimers.map(timer => 
+          timer.id === 1 ? { ...timer, isRunning: false } : timer
+        );
+      }
+      // Если таймер отдыха останавливается, можно возобновить таймер упражнения
+      // (только если тренировка активна и не на паузе)
+      else if (workoutSettings.isWorkoutActive && !workoutSettings.isPaused) {
+        return updatedTimers.map(timer => 
+          timer.id === 1 ? { ...timer, isRunning: true } : timer
+        );
+      }
+      return updatedTimers;
+    });
+  }, [workoutSettings.isWorkoutActive, workoutSettings.isPaused]);
+
+  // Функция для сброса таймера упражнения (id=1)
+  const resetExerciseTimer = useCallback(() => {
     setTimers(prevTimers => 
       prevTimers.map(timer => 
-        timer.id === timerId ? { ...timer, time: 0, isRunning: false, isActive: false } : timer
+        timer.id === 1 ? { ...timer, time: 0, isRunning: false } : timer
+      )
+    );
+  }, []);
+
+  // Функция для сброса таймера отдыха (id=2)
+  const resetRestTimer = useCallback(() => {
+    setTimers(prevTimers => 
+      prevTimers.map(timer => 
+        timer.id === 2 ? { ...timer, time: 0, isRunning: false } : timer
       )
     );
   }, []);
@@ -115,7 +139,7 @@ function App() {
   // Функция для сброса всех таймеров
   const resetAllTimers = useCallback(() => {
     setTimers(prevTimers => 
-      prevTimers.map(timer => ({ ...timer, time: 0, isRunning: false, isActive: false }))
+      prevTimers.map(timer => ({ ...timer, time: 0, isRunning: false, isActive: timer.id === 1 })) // Активен только упражнение
     );
     setWorkoutSettings(prev => ({ 
       ...prev, 
@@ -134,8 +158,8 @@ function App() {
     setTimers(prevTimers => 
       prevTimers.map((timer, index) => ({ 
         ...timer, 
-        isRunning: true,
-        isActive: index === 0  // Активный таймер - первый
+        isRunning: index === 0, // Запускаем только первый (упражнение)
+        isActive: index === 0
       }))
     );
   }, []);
@@ -152,7 +176,10 @@ function App() {
   const resumeWorkout = useCallback(() => {
     setWorkoutSettings(prev => ({ ...prev, isPaused: false }));
     setTimers(prevTimers => 
-      prevTimers.map(timer => ({ ...timer, isRunning: true }))
+      prevTimers.map(timer => 
+        // Возобновляем только таймер упражнения, если отдых не активен
+        timer.id === 1 && !prevTimers.find(t => t.id === 2).isRunning ? { ...timer, isRunning: true } : timer
+      )
     );
   }, []);
 
@@ -182,39 +209,10 @@ function App() {
     setWorkoutHistory(prev => prev.filter(workout => workout.id !== id));
   }, []);
 
-  // Переключение активного таймера
-  const switchToNextTimer = useCallback(() => {
-    setTimers(prevTimers => {
-      const activeIndex = prevTimers.findIndex(t => t.isActive);
-      const nextIndex = (activeIndex + 1) % prevTimers.length;
-      
-      return prevTimers.map((timer, index) => ({
-        ...timer,
-        isActive: index === nextIndex
-      }));
-    });
-    
-    // Увеличиваем количество выполненных кругов
-    setWorkoutSettings(prev => ({
-      ...prev,
-      totalCompletedRounds: prev.totalCompletedRounds + 1
-    }));
-    
-    // Проверяем, закончилась ли тренировка
-    if (workoutSettings.totalCompletedRounds + 1 >= workoutSettings.rounds) {
-      stopWorkout();
-    } else {
-      // Показываем уведомление о переходе
-      setShowRestAlert(true);
-      setTimeout(() => setShowRestAlert(false), 3000); // Скрываем через 3 секунды
-    }
-  }, [workoutSettings.totalCompletedRounds, workoutSettings.rounds, stopWorkout]);
-
   // Расчет калорий (упрощенная формула)
   useEffect(() => {
     if (workoutSettings.isWorkoutActive) {
       const totalSeconds = timers.reduce((sum, timer) => sum + Math.floor(timer.time / 1000), 0);
-      // Примерная формула: 8 калорий в минуту для умеренной активности
       const calculatedCalories = Math.floor((totalSeconds / 60) * 8);
       setCalories(calculatedCalories);
     }
@@ -224,24 +222,31 @@ function App() {
   useEffect(() => {
     if (workoutSettings.isWorkoutActive && !workoutSettings.isPaused) {
       const maxTime = workoutSettings.exerciseTime * 60 * 1000; // в миллисекундах (минуты * 60 * 1000)
-      const activeTimer = timers.find(timer => timer.isActive);
+      const exerciseTimer = timers.find(timer => timer.id === 1);
       
-      if (activeTimer && activeTimer.time >= maxTime) {
-        switchToNextTimer();
+      if (exerciseTimer && exerciseTimer.time >= maxTime) {
+        // Показываем уведомление о переходе к отдыху
+        setShowRestAlert(true);
+        setTimeout(() => setShowRestAlert(false), 3000); // Скрываем через 3 секунды
+        
+        // Автоматически запускаем таймер отдыха
+        setTimers(prevTimers => 
+          prevTimers.map(timer => 
+            timer.id === 2 ? { ...timer, isRunning: true } : timer
+          )
+        );
       }
     }
-  }, [timers, workoutSettings, switchToNextTimer]);
+  }, [timers, workoutSettings, workoutSettings.isWorkoutActive, workoutSettings.isPaused]);
 
   const Stopwatch = ({ 
     id, 
     title, 
     time, 
     isRunning, 
-    onTimeUpdate, 
-    onToggle, 
-    onReset, 
     isActive, 
-    isActiveTimer 
+    hasControls, // Новое свойство
+    onTimeUpdate 
   }) => {
     const [localTime, setLocalTime] = useState(time);
 
@@ -251,19 +256,22 @@ function App() {
 
     useEffect(() => {
       let interval = null;
-      if (isRunning && isActive) {
+      if (isRunning) {
+        // Исправление: 1 секунда приложения = 2 секунды реального времени
+        // Увеличиваем интервал с 10 мс до 20 мс
+        // Увеличиваем прирост времени с 10 мс до 20 мс
         interval = setInterval(() => {
           setLocalTime(prevTime => {
-            const newTime = prevTime + 10; // Увеличиваем на 10 мс
+            const newTime = prevTime + 20; // Увеличиваем на 20 мс
             onTimeUpdate(id, newTime);
             return newTime;
           });
-        }, 10); // Интервал 10 мс
+        }, 20); // Интервал 20 мс
       } else {
         clearInterval(interval);
       }
       return () => clearInterval(interval);
-    }, [isRunning, isActive, id, onTimeUpdate]);
+    }, [isRunning, id, onTimeUpdate]);
 
     const formatTime = (time) => {
       const getMilliseconds = `00${Math.floor((time % 1000) / 10)}`.slice(-2);
@@ -276,25 +284,25 @@ function App() {
     return (
       <Card 
         sx={{ 
-          minWidth: '100%', // Для мобильных устройств карточки будут на всю ширину
+          minWidth: '100%', 
           m: 0.5, 
-          backgroundColor: isActiveTimer ? '#212121' : '#2d2d2d', 
+          backgroundColor: isActive ? '#212121' : '#2d2d2d', 
           color: 'white', 
-          border: isActiveTimer ? '2px solid #1976d2' : '1px solid #444',
-          boxShadow: isActiveTimer ? '0 0 15px rgba(25, 118, 210, 0.5)' : 'none',
+          border: isActive ? '2px solid #1976d2' : '1px solid #444',
+          boxShadow: isActive ? '0 0 15px rgba(25, 118, 210, 0.5)' : 'none',
           height: '100%',
-          borderRadius: 2 // Закругленные углы для секундомеров
+          borderRadius: 2 
         }}
       >
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <Timer sx={{ mr: 1, color: isActiveTimer ? '#1976d2' : 'inherit' }} />
+              <Timer sx={{ mr: 1, color: isActive ? '#1976d2' : 'inherit' }} />
               <Typography variant="h6" gutterBottom>
                 {title}
               </Typography>
             </Box>
-            {isActiveTimer && (
+            {isActive && (
               <Typography variant="caption" sx={{ color: '#1976d2', fontWeight: 'bold' }}>
                 АКТИВЕН
               </Typography>
@@ -307,43 +315,80 @@ function App() {
             sx={{ 
               fontFamily: 'monospace', 
               mb: 1,
-              fontSize: { xs: '1.5rem', sm: '2rem' } // Адаптивный размер шрифта
+              fontSize: { xs: '1.5rem', sm: '2rem' } 
             }}
           >
             {formatTime(localTime)}
           </Typography>
           
-          <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
-            <Button 
-              variant="contained" 
-              onClick={onToggle}
-              sx={{ 
-                flex: 1,
-                backgroundColor: isRunning ? '#f44336' : '#4caf50',
-                '&:hover': {
-                  backgroundColor: isRunning ? '#d32f2f' : '#388e3c'
-                },
-                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
-              }}
-            >
-              {isRunning ? 'Пауза' : 'Старт'}
-            </Button>
-            <Button 
-              variant="outlined" 
-              onClick={onReset}
-              sx={{ 
-                flex: 1,
-                color: 'white', 
-                borderColor: 'white',
-                '&:hover': {
-                  backgroundColor: '#444'
-                },
-                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
-              }}
-            >
-              Сброс
-            </Button>
-          </Box>
+          {/* Условный рендеринг кнопок */}
+          {hasControls && (
+            <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <Button 
+                variant="contained" 
+                onClick={toggleExerciseTimer}
+                sx={{ 
+                  flex: 1,
+                  backgroundColor: isRunning ? '#f44336' : '#4caf50',
+                  '&:hover': {
+                    backgroundColor: isRunning ? '#d32f2f' : '#388e3c'
+                  },
+                  py: { xs: 1.5, sm: 0.5 } 
+                }}
+              >
+                {isRunning ? 'Пауза' : 'Старт'}
+              </Button>
+              <Button 
+                variant="outlined" 
+                onClick={resetExerciseTimer}
+                sx={{ 
+                  flex: 1,
+                  color: 'white', 
+                  borderColor: 'white',
+                  '&:hover': {
+                    backgroundColor: '#444'
+                  },
+                  py: { xs: 1.5, sm: 0.5 } 
+                }}
+              >
+                Сброс
+              </Button>
+            </Box>
+          )}
+          {/* Кнопки для таймера отдыха */}
+          {!hasControls && id === 2 && (
+            <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
+              <Button 
+                variant="contained" 
+                onClick={toggleRestTimer}
+                sx={{ 
+                  flex: 1,
+                  backgroundColor: isRunning ? '#f44336' : '#4caf50',
+                  '&:hover': {
+                    backgroundColor: isRunning ? '#d32f2f' : '#388e3c'
+                  },
+                  py: { xs: 1.5, sm: 0.5 } 
+                }}
+              >
+                {isRunning ? 'Стоп Отдых' : 'Старт Отдых'}
+              </Button>
+              <Button 
+                variant="outlined" 
+                onClick={resetRestTimer}
+                sx={{ 
+                  flex: 1,
+                  color: 'white', 
+                  borderColor: 'white',
+                  '&:hover': {
+                    backgroundColor: '#444'
+                  },
+                  py: { xs: 1.5, sm: 0.5 } 
+                }}
+              >
+                Сброс Отдыха
+              </Button>
+            </Box>
+          )}
         </CardContent>
       </Card>
     );
@@ -359,7 +404,6 @@ function App() {
     const [calories, setCalories] = useState(0);
 
     const calculateCalories = () => {
-      // Упрощенная формула расчета калорий: (вес * длительность * интенсивность) / 100
       const calculated = Math.round((formData.weight * formData.duration * (formData.intensity / 100)) * 0.8);
       setCalories(calculated);
     };
@@ -437,8 +481,7 @@ function App() {
 
   // Компонент для отображения графика статистики
   const StatsChart = () => {
-    // Подготовим данные для графика
-    const recentWorkouts = workoutHistory.slice(0, 7).reverse(); // последние 7 тренировок
+    const recentWorkouts = workoutHistory.slice(0, 7).reverse(); 
     
     if (recentWorkouts.length === 0) {
       return (
@@ -449,7 +492,6 @@ function App() {
     }
     
     const maxCalories = Math.max(...recentWorkouts.map(w => w.calories), 100);
-    // const maxRounds = Math.max(...recentWorkouts.map(w => w.rounds), 1); // УДАЛЕНО: не используется
 
     return (
       <Box sx={{ p: 2, color: 'white' }}>
@@ -590,7 +632,7 @@ function App() {
               p: { xs: 2, sm: 3 }, 
               backgroundColor: '#1e1e1e', 
               color: 'white', 
-              borderRadius: 3, // Закругленные углы для основной рамки
+              borderRadius: 3, 
               width: '100%',
               maxWidth: 1200
             }}
@@ -636,7 +678,6 @@ function App() {
                   />
                 </Grid>
                 
-                {/* Общее время тренировки - отображение */}
                 <Grid item xs={12} sm={4}>
                   <Typography gutterBottom>Общее время тренировки (сек): {totalWorkoutTime.toFixed(1)}</Typography>
                   <Slider
@@ -644,9 +685,9 @@ function App() {
                     valueLabelDisplay="auto"
                     step={0.1}
                     min={0}
-                    max={workoutSettings.rounds * workoutSettings.exerciseTime * 60} // максимум = круги * мин * 60
+                    max={workoutSettings.rounds * workoutSettings.exerciseTime * 60}
                     color="info"
-                    disabled // Только для отображения
+                    disabled
                   />
                 </Grid>
               </Grid>
@@ -760,7 +801,7 @@ function App() {
               {/* Уведомление о переходе к отдыху */}
               {showRestAlert && (
                 <Alert severity="info" sx={{ mt: 2, borderRadius: 2 }}>
-                  Переход к следующему кругу! Таймер сброшен.
+                  Время упражнения истекло! Начался отдых.
                 </Alert>
               )}
             </Box>
@@ -785,26 +826,24 @@ function App() {
                     fontWeight: timer.isActive ? 'bold' : 'normal',
                     backgroundColor: timer.isActive ? '#1976d2' : '#444',
                     borderColor: timer.isActive ? '#1976d2' : '#666',
-                    borderRadius: 16, // Закругленные углы для чипов
-                    animation: timer.isActive && blinkActive ? 'blink 0.5s infinite alternate' : 'none'
+                    borderRadius: 16 
                   }}
                 />
               ))}
             </Box>
             
+            {/* Только 2 таймера */}
             <Grid container spacing={1} justifyContent="center">
               {timers.map((timer) => (
-                <Grid item xs={12} md={4} key={timer.id}>
+                <Grid item xs={12} md={6} key={timer.id}> {/* Изменили md={4} на md={6} для двух таймеров */ }
                   <Stopwatch 
                     id={timer.id}
                     title={timer.title}
                     time={timer.time}
                     isRunning={timer.isRunning}
+                    isActive={timer.isActive}
+                    hasControls={timer.hasControls} // Передаем новое свойство
                     onTimeUpdate={handleTimeUpdate}
-                    onToggle={() => toggleTimer(timer.id)}
-                    onReset={() => resetTimer(timer.id)}
-                    isActive={workoutSettings.isWorkoutActive && !workoutSettings.isPaused}
-                    isActiveTimer={timer.isActive}
                   />
                 </Grid>
               ))}
