@@ -275,24 +275,12 @@ function App() {
           backgroundColor: isActiveTimer ? '#212121' : '#2d2d2d', 
           color: 'white', 
           border: isActiveTimer ? '2px solid #1976d2' : '1px solid #444',
-          boxShadow: isActiveTimer ? 
-            '0 0 15px rgba(25, 118, 210, 0.5), 0 0 25px rgba(25, 118, 210, 0.3)' : // Два слоя тени для активного
-            '0 4px 8px rgba(0,0,0,0.2)', // Тень для неактивного
-          borderRadius: 2,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
+          boxShadow: isActiveTimer ? '0 0 15px rgba(25, 118, 210, 0.5)' : 'none',
           height: '100%',
-          // Эффекты для активного таймера
-          transform: isActiveTimer ? 'scale(1.02)' : 'scale(1)',
-          transition: 'all 0.3s ease-in-out',
-          '&:hover': {
-            backgroundColor: isActiveTimer ? '#2a2a2a' : '#353535',
-            transform: isActiveTimer ? 'scale(1.03)' : 'scale(1.01)',
-          }
+          borderRadius: 2 // Закругленные углы для секундомеров
         }}
       >
-        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+        <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Timer sx={{ mr: 1, color: isActiveTimer ? '#1976d2' : 'inherit' }} />
@@ -313,7 +301,7 @@ function App() {
             sx={{ 
               fontFamily: 'monospace', 
               mb: 2,
-              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem' }, // Адаптивный размер
+              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem' }, // Адаптивный размер шрифта
               lineHeight: 1.2
             }}
           >
@@ -330,7 +318,7 @@ function App() {
                 '&:hover': {
                   backgroundColor: isRunning ? '#d32f2f' : '#388e3c'
                 },
-                py: { xs: 1.5, sm: 0.5 } 
+                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
               }}
             >
               {isRunning ? 'Пауза' : 'Старт'}
@@ -345,7 +333,7 @@ function App() {
                 '&:hover': {
                   backgroundColor: '#444'
                 },
-                py: { xs: 1.5, sm: 0.5 } 
+                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
               }}
             >
               Сброс
@@ -361,7 +349,7 @@ function App() {
                 '&:hover': {
                   backgroundColor: '#0b7dda'
                 },
-                py: { xs: 1.5, sm: 0.5 } 
+                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
               }}
             >
               Сохранить
@@ -722,7 +710,7 @@ function App() {
                           minWidth: { xs: 120, sm: 'auto' }
                         }}
                       >
-                        Пауза
+                        Пауза (Отдых)
                       </Button>
                     )}
                     
