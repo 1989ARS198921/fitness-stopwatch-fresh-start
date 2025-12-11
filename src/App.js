@@ -37,7 +37,8 @@ import {
   Timer,
   History,
   Close,
-  Save
+  Save,
+  Delete
 } from '@mui/icons-material';
 
 function App() {
