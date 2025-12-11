@@ -67,6 +67,11 @@ function App() {
   
   // Состояние для истории тренировок
   const [workoutHistory, setWorkoutHistory] = useState([]);
+  
+  const deleteWorkout = useCallback((id) => {
+  setWorkoutHistory(prev => prev.filter(workout => workout.id !== id));
+}, []);
+
   const [showHistory, setShowHistory] = useState(false);
 
   // Функция для обновления времени таймера
