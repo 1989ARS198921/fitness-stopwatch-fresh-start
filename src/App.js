@@ -130,22 +130,6 @@ function App() {
     );
   }, []);
 
-  // Функция для паузы тренировки
-  const pauseWorkout = useCallback(() => {
-    setWorkoutSettings(prev => ({ ...prev, isPaused: true }));
-    setTimers(prevTimers => 
-      prevTimers.map(timer => ({ ...timer, isRunning: false }))
-    );
-  }, []);
-
-  // Функция для продолжения тренировки
-  const resumeWorkout = useCallback(() => {
-    setWorkoutSettings(prev => ({ ...prev, isPaused: false }));
-    setTimers(prevTimers => 
-      prevTimers.map(timer => ({ ...timer, isRunning: true }))
-    );
-  }, []);
-
   // Функция для остановки тренировки и сохранения результата
   const stopAndSaveWorkout = useCallback(() => {
     setWorkoutSettings(prev => ({ ...prev, isWorkoutActive: false, isPaused: false }));
@@ -287,16 +271,28 @@ function App() {
       <Card 
         sx={{ 
           minWidth: '100%', // На всю ширину
-          m: 0.5, 
+          m: 1, 
           backgroundColor: isActiveTimer ? '#212121' : '#2d2d2d', 
           color: 'white', 
           border: isActiveTimer ? '2px solid #1976d2' : '1px solid #444',
-          boxShadow: isActiveTimer ? '0 0 15px rgba(25, 118, 210, 0.5)' : 'none',
+          boxShadow: isActiveTimer ? 
+            '0 0 15px rgba(25, 118, 210, 0.5), 0 0 25px rgba(25, 118, 210, 0.3)' : // Два слоя тени для активного
+            '0 4px 8px rgba(0,0,0,0.2)', // Тень для неактивного
+          borderRadius: 2,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
           height: '100%',
-          borderRadius: 2 // Закругленные углы для секундомеров
+          // Эффекты для активного таймера
+          transform: isActiveTimer ? 'scale(1.02)' : 'scale(1)',
+          transition: 'all 0.3s ease-in-out',
+          '&:hover': {
+            backgroundColor: isActiveTimer ? '#2a2a2a' : '#353535',
+            transform: isActiveTimer ? 'scale(1.03)' : 'scale(1.01)',
+          }
         }}
       >
-        <CardContent>
+        <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
               <Timer sx={{ mr: 1, color: isActiveTimer ? '#1976d2' : 'inherit' }} />
@@ -311,25 +307,22 @@ function App() {
             )}
           </Box>
           
-          {/* Увеличиваем размер шрифта для лучшей видимости на расстоянии */}
           <Typography 
-            variant="h2" // Было h4, стало h2
+            variant="h2" // Увеличен размер шрифта
             component="div" 
             sx={{ 
               fontFamily: 'monospace', 
               mb: 2,
-              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem' }, // Адаптивный размер шрифта, очень большой
-              lineHeight: 1.2 // Улучшаем читаемость
+              fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem' }, // Адаптивный размер
+              lineHeight: 1.2
             }}
           >
             {formatTime(localTime)}
           </Typography>
           
-          {/* Управление и сохранение в карточке таймера */}
           <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
             <Button 
               variant="contained" 
-              startIcon={isRunning ? <Pause /> : <PlayArrow />}
               onClick={onToggle}
               sx={{ 
                 flex: 1,
@@ -337,14 +330,13 @@ function App() {
                 '&:hover': {
                   backgroundColor: isRunning ? '#d32f2f' : '#388e3c'
                 },
-                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
+                py: { xs: 1.5, sm: 0.5 } 
               }}
             >
               {isRunning ? 'Пауза' : 'Старт'}
             </Button>
             <Button 
               variant="outlined" 
-              startIcon={<Replay />}
               onClick={onReset}
               sx={{ 
                 flex: 1,
@@ -353,7 +345,7 @@ function App() {
                 '&:hover': {
                   backgroundColor: '#444'
                 },
-                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
+                py: { xs: 1.5, sm: 0.5 } 
               }}
             >
               Сброс
@@ -362,14 +354,14 @@ function App() {
             <Button 
               variant="contained" 
               startIcon={<Save />}
-              onClick={stopAndSaveWorkout}
+              onClick={onStopAndSave}
               sx={{ 
                 flex: 1,
                 backgroundColor: '#2196f3',
                 '&:hover': {
                   backgroundColor: '#0b7dda'
                 },
-                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
+                py: { xs: 1.5, sm: 0.5 } 
               }}
             >
               Сохранить
@@ -556,22 +548,22 @@ function App() {
                         backgroundColor: index % 2 === 0 ? '#2d2d2d' : '#333', 
                         borderRadius: 1, 
                         mb: 1,
-                        color: 'white'
+                        color: 'white' // Цвет текста в списке
                       }}
                     >
                       <ListItemText
                         primary={
-                          <Typography sx={{ color: 'white' }}>
+                          <Typography sx={{ color: 'white' }}> {/* Цвет основного текста */}
                             Тренировка от {workout.date} {workout.time}
                           </Typography>
                         }
                         secondary={
                           <>
-                            <Typography component="span" variant="body2" sx={{ color: 'text.primary' }}>
+                            <Typography component="span" variant="body2" sx={{ color: 'text.primary' }}> {/* Цвет вторичного текста */}
                               Выполнено кругов: {workout.rounds}, Калорий: {workout.calories}
                             </Typography>
                             <br />
-                            <Typography component="span" variant="body2" sx={{ color: 'text.primary' }}>
+                            <Typography component="span" variant="body2" sx={{ color: 'text.primary' }}> {/* Цвет вторичного текста */}
                               Общее время: {(workout.totalWorkoutTime / 60).toFixed(1)} мин
                             </Typography>
                           </>
@@ -581,7 +573,7 @@ function App() {
                         edge="end" 
                         aria-label="удалить" 
                         onClick={() => deleteWorkout(workout.id)}
-                        sx={{ color: 'white' }}
+                        sx={{ color: 'white' }} // Цвет иконки
                       >
                         <Delete />
                       </IconButton>
@@ -680,6 +672,7 @@ function App() {
                 </Grid>
               </Grid>
               
+              {/* Управление теперь через таймеры */}
               <Box sx={{ 
                 mt: 2, 
                 display: 'flex', 
@@ -707,7 +700,7 @@ function App() {
                       <Button 
                         variant="contained" 
                         startIcon={<PlayArrow />}
-                        onClick={resumeWorkout}
+                        onClick={toggleExerciseTimer}
                         sx={{ 
                           backgroundColor: '#2196f3', 
                           '&:hover': { backgroundColor: '#0b7dda' },
@@ -721,7 +714,7 @@ function App() {
                       <Button 
                         variant="contained" 
                         startIcon={<Pause />}
-                        onClick={pauseWorkout}
+                        onClick={toggleExerciseTimer}
                         sx={{ 
                           backgroundColor: '#ff9800', 
                           '&:hover': { backgroundColor: '#f57c00' },
