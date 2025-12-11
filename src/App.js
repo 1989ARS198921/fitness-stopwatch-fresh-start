@@ -37,7 +37,8 @@ import {
   Timer,
   History,
   Close,
-  Save
+  Save,
+  Delete
 } from '@mui/icons-material';
 
 function App() {
@@ -58,6 +59,10 @@ function App() {
     isWorkoutActive: false,
     isPaused: false
   });
+
+  const deleteWorkout = useCallback((id) => {
+    setWorkoutHistory(prev => prev.filter(workout => workout.id !== id));
+  }, []);
   
   const [calories, setCalories] = useState(0);
   const [showRestAlert, setShowRestAlert] = useState(false);
