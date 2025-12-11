@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import { 
   Container, 
@@ -45,8 +45,9 @@ function App() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Обновленный массив таймеров: теперь только 1 таймер - упражнение
   const [timers, setTimers] = useState([
-    { id: 1, time: 0, isRunning: false, title: 'Упражнение', isActive: true } // Только один таймер
+    { id: 1, time: 0, isRunning: false, title: 'Упражнение', isActive: true }
   ]);
   
   const [workoutSettings, setWorkoutSettings] = useState({
@@ -95,7 +96,7 @@ function App() {
   const resetExerciseTimer = useCallback(() => {
     setTimers(prevTimers => 
       prevTimers.map(timer => 
-        timer.id === 1 ? { ...timer, time: 0, isRunning: false } : timer
+        timer.id === 1 ? { ...timer, time: 0, isRunning: false, isActive: false } : timer
       )
     );
   }, []);
@@ -103,7 +104,7 @@ function App() {
   // Функция для сброса всех таймеров
   const resetAllTimers = useCallback(() => {
     setTimers(prevTimers => 
-      prevTimers.map(timer => ({ ...timer, time: 0, isRunning: false }))
+      prevTimers.map(timer => ({ ...timer, time: 0, isRunning: false, isActive: false }))
     );
     setWorkoutSettings(prev => ({ 
       ...prev, 
@@ -129,8 +130,24 @@ function App() {
     );
   }, []);
 
-  // Функция для остановки тренировки
-  const stopWorkout = useCallback(() => {
+  // Функция для паузы тренировки
+  const pauseWorkout = useCallback(() => {
+    setWorkoutSettings(prev => ({ ...prev, isPaused: true }));
+    setTimers(prevTimers => 
+      prevTimers.map(timer => ({ ...timer, isRunning: false }))
+    );
+  }, []);
+
+  // Функция для продолжения тренировки
+  const resumeWorkout = useCallback(() => {
+    setWorkoutSettings(prev => ({ ...prev, isPaused: false }));
+    setTimers(prevTimers => 
+      prevTimers.map(timer => ({ ...timer, isRunning: true }))
+    );
+  }, []);
+
+  // Функция для остановки тренировки и сохранения результата
+  const stopAndSaveWorkout = useCallback(() => {
     setWorkoutSettings(prev => ({ ...prev, isWorkoutActive: false, isPaused: false }));
     setTimers(prevTimers => 
       prevTimers.map(timer => ({ ...timer, isRunning: false }))
@@ -229,16 +246,15 @@ function App() {
     title, 
     time, 
     isRunning, 
-    isActive 
+    isActive, 
+    isActiveTimer 
   }) => {
     const [localTime, setLocalTime] = useState(time);
 
-    // Синхронизируем локальное состояние с внешним при изменении `time`
     useEffect(() => {
       setLocalTime(time);
     }, [time]);
 
-    // Эффект для запуска/остановки интервала
     useEffect(() => {
       let interval = null;
       if (isRunning && isActive) {
@@ -249,7 +265,6 @@ function App() {
           setLocalTime(prevTime => {
             // Увеличиваем на ~13 мс (10 * 1.3)
             const newTime = prevTime + 13;
-            // Вызываем внешнюю функцию для обновления времени в родительском состоянии
             onTimeUpdate(id, newTime);
             return newTime;
           });
@@ -258,7 +273,7 @@ function App() {
         clearInterval(interval);
       }
       return () => clearInterval(interval);
-    }, [isRunning, isActive, id, onTimeUpdate]); // Добавлены зависимости
+    }, [isRunning, isActive, id, onTimeUpdate]);
 
     const formatTime = (time) => {
       const getMilliseconds = `00${Math.floor((time % 1000) / 10)}`.slice(-2);
@@ -272,7 +287,7 @@ function App() {
       <Card 
         sx={{ 
           minWidth: '100%', // На всю ширину
-          m: 1, 
+          m: 0.5, 
           backgroundColor: isActiveTimer ? '#212121' : '#2d2d2d', 
           color: 'white', 
           border: isActiveTimer ? '2px solid #1976d2' : '1px solid #444',
@@ -310,9 +325,11 @@ function App() {
             {formatTime(localTime)}
           </Typography>
           
+          {/* Управление и сохранение в карточке таймера */}
           <Box sx={{ display: 'flex', gap: 1, flexDirection: { xs: 'column', sm: 'row' } }}>
             <Button 
               variant="contained" 
+              startIcon={isRunning ? <Pause /> : <PlayArrow />}
               onClick={onToggle}
               sx={{ 
                 flex: 1,
@@ -327,6 +344,7 @@ function App() {
             </Button>
             <Button 
               variant="outlined" 
+              startIcon={<Replay />}
               onClick={onReset}
               sx={{ 
                 flex: 1,
@@ -339,6 +357,22 @@ function App() {
               }}
             >
               Сброс
+            </Button>
+            {/* Кнопка сохранения тренировки */}
+            <Button 
+              variant="contained" 
+              startIcon={<Save />}
+              onClick={stopAndSaveWorkout}
+              sx={{ 
+                flex: 1,
+                backgroundColor: '#2196f3',
+                '&:hover': {
+                  backgroundColor: '#0b7dda'
+                },
+                py: { xs: 1.5, sm: 0.5 } // Больше вертикальный паддинг на мобильных
+              }}
+            >
+              Сохранить
             </Button>
           </Box>
         </CardContent>
@@ -473,7 +507,7 @@ function App() {
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
           {recentWorkouts.map((workout, index) => (
             <Typography key={workout.id} variant="caption" sx={{ color: '#ffffff', fontSize: '0.7rem' }}>
-              {workout.date.split('.')[0]} {/* Показываем только день */}
+              {workout.date.split('.')[0]}
             </Typography>
           ))}
         </Box>
@@ -717,7 +751,7 @@ function App() {
                     <Button 
                       variant="contained" 
                       startIcon={<Save />}
-                      onClick={stopWorkout}
+                      onClick={stopAndSaveWorkout}
                       sx={{ 
                         backgroundColor: '#2196f3', 
                         '&:hover': { backgroundColor: '#0b7dda' },
@@ -817,6 +851,7 @@ function App() {
                   onTimeUpdate={handleTimeUpdate}
                   onToggle={toggleExerciseTimer}
                   onReset={resetExerciseTimer}
+                  onStopAndSave={stopAndSaveWorkout}
                 />
               </Grid>
             </Grid>
